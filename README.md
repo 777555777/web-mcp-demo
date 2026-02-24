@@ -1,42 +1,34 @@
-# sv
+# Pizza Configurator Demo
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+![Pizza Configurator](title-image.png)
 
-## Creating a project
+A simple SvelteKit demo app with 3 pages where users can build custom pizzas and place a dummy order.
 
-If you're seeing this, you've probably already done this step. Congrats!
+## Pages
 
-```sh
-# create a new project
-npx sv create my-app
-```
+- `/` — Landing page
+- `/configurator` — Pizza builder (size, dough, sauce, cheese, toppings)
+- `/order` — Cart and dummy order submission
 
-To recreate this project with the same configuration:
+## State & Persistence
 
-```sh
-# recreate this project
-npx sv create --template minimal --types ts --add prettier eslint mcp="ide:vscode+setup:remote" --install npm web-mcp-demo
-```
+- Centralized class-based state using Svelte 5 runes
+- Simple methods for ingredient selection, cart updates, reset, and order placement
+- Cart persistence in `localStorage`
 
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+## Run
 
 ```sh
+npm i
+npm run build
+
+# preview hotreload dev
 npm run dev
 
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
+# preview prod build
+npm run preview
 ```
 
-## Building
+## Licence
 
-To create a production version of your app:
-
-```sh
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+This project is licensed under the terms in [LICENCE](LICENCE).
