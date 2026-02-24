@@ -21,7 +21,7 @@
 			{#each links as link}
 				<li>
 					<a href={link.href} class="nav-link" class:active={currentPath === link.href}>
-						{link.label}
+						<span class="nav-label">{link.label}</span>
 						{#if link.href === '/order' && cart.itemCount > 0}
 							<span class="cart-badge">{cart.itemCount}</span>
 						{/if}
@@ -119,5 +119,29 @@
 		font-size: 0.7rem;
 		font-weight: 700;
 		line-height: 1;
+	}
+
+	/* Mobile: compact navbar */
+	@media (max-width: 600px) {
+		.navbar {
+			height: 56px;
+		}
+
+		.logo-emoji {
+			font-size: 1.3rem;
+		}
+
+		.logo-text {
+			font-size: var(--text-base);
+		}
+
+		.nav-links {
+			gap: 0;
+		}
+
+		.nav-link {
+			padding: var(--space-xs) var(--space-sm);
+			font-size: var(--text-xs);
+		}
 	}
 </style>

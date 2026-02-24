@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import CategorySelector from '$lib/components/CategorySelector.svelte';
 	import PizzaSummaryCard from '$lib/components/PizzaSummaryCard.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import { categories } from '$lib/domain/menu.js';
+	import { formatPrice } from '$lib/domain/pricing.js';
 	import { configurator } from '$lib/state/configurator.svelte.js';
 	import { cart } from '$lib/state/cart.svelte.js';
 
@@ -30,6 +30,12 @@
 		<h1>Build Your Pizza</h1>
 		<p>Select your ingredients below. Your pizza summary updates live.</p>
 	</header>
+
+	<!-- Mobile sticky price bar -->
+	<div class="mobile-price-bar">
+		<span class="mobile-price-label">🍕 Current total</span>
+		<span class="mobile-price-value">{formatPrice(configurator.totalPrice)}</span>
+	</div>
 
 	<div class="configurator-layout">
 		<div class="categories-panel">
@@ -96,6 +102,9 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-lg);
+		position: sticky;
+		top: calc(var(--nav-height) + var(--space-lg));
+		align-self: start;
 	}
 
 	.actions-bar {
@@ -120,13 +129,47 @@
 		margin-bottom: var(--space-sm);
 	}
 
+	/* Mobile sticky price bar */
+	.mobile-price-bar {
+		display: none;
+	}
+
 	@media (max-width: 860px) {
 		.configurator-layout {
 			grid-template-columns: 1fr;
 		}
 
 		.summary-panel {
-			order: -1;
+			display: none;
+			position: static;
+			top: auto;
+		}
+
+		.mobile-price-bar {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			position: sticky;
+			top: 56px;
+			z-index: 90;
+			background-color: var(--color-mozzarella);
+			border-bottom: 1px solid var(--color-flour-dark);
+			padding: var(--space-sm) var(--space-lg);
+			margin-inline: calc(-1 * var(--space-lg));
+			box-shadow: var(--shadow-sm);
+		}
+
+		.mobile-price-label {
+			font-size: var(--text-sm);
+			font-weight: 500;
+			color: var(--color-smoke);
+		}
+
+		.mobile-price-value {
+			font-family: var(--font-display);
+			font-size: var(--text-xl);
+			font-weight: 700;
+			color: var(--color-crust);
 		}
 	}
 </style>

@@ -98,6 +98,12 @@
 </div>
 
 <style>
+	.order-summary {
+		position: sticky;
+		top: calc(var(--nav-height) + var(--space-lg));
+		align-self: start;
+	}
+
 	.order-page {
 		padding-block: var(--space-2xl) var(--space-4xl);
 	}
@@ -273,6 +279,7 @@
 	@media (max-width: 860px) {
 		.cart-layout {
 			grid-template-columns: 1fr;
+			justify-content: center;
 		}
 	}
 </style>

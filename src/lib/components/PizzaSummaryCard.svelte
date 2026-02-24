@@ -55,8 +55,6 @@
 		border-radius: var(--radius-xl);
 		padding: var(--space-xl);
 		box-shadow: var(--shadow-md);
-		position: sticky;
-		top: calc(var(--nav-height) + var(--space-lg));
 	}
 
 	.summary-title {
