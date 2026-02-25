@@ -7,6 +7,33 @@
 	import { configurator } from '$lib/state/configurator.svelte.js';
 	import { cart } from '$lib/state/cart.svelte.js';
 
+	const webmcpPageManifest = JSON.stringify({
+		spec: 'webmcp/0.1',
+		page: { url: '/configurator', title: 'Build Your Pizza' },
+		intents: [
+			{
+				id: 'menu.get_catalog',
+				description: 'Read menu catalog, ingredient IDs, and prices before making selections.'
+			},
+			{
+				id: 'configurator.get_current',
+				description: 'Read in-progress pizza selections and live price.'
+			},
+			{
+				id: 'configurator.set_selection',
+				description: 'Set/toggle pizza ingredient selections by category and ingredient IDs.'
+			},
+			{
+				id: 'configurator.reset',
+				description: 'Reset selections to default pizza.'
+			},
+			{
+				id: 'cart.add_current_pizza',
+				description: 'Add currently configured pizza to cart.'
+			}
+		]
+	});
+
 	let added = $state(false);
 
 	function handleAddToCart() {
@@ -23,6 +50,9 @@
 
 <svelte:head>
 	<title>Build Your Pizza — Forno Antico</title>
+	<script id="webmcp" type="application/json">
+{webmcpPageManifest}
+	</script>
 </svelte:head>
 
 <div class="configurator container">

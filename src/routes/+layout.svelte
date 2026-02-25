@@ -4,6 +4,8 @@
 	import Footer from '$lib/components/Footer.svelte';
 	import { page } from '$app/state';
 	import { onNavigate } from '$app/navigation';
+	import { onMount } from 'svelte';
+	import { initWebMCPTools } from '$lib/webmcp/tools.js';
 
 	let { children } = $props();
 
@@ -17,6 +19,10 @@
 				await navigation.complete;
 			});
 		});
+	});
+
+	onMount(() => {
+		initWebMCPTools();
 	});
 </script>
 

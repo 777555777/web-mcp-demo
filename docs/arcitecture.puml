@@ -1,0 +1,32 @@
+@startuml
+title Forno Antico - High-Level App & State Flow
+
+actor User
+
+package "SvelteKit App" {
+  [Routes\n(Home, Configurator, Order)] as Routes
+  [UI Components\n(Navbar, CategorySelector,\nPizzaSummary, CartItem)] as UI
+}
+
+package "State Layer" {
+  [Configurator State\n(in-memory reactive)] as ConfigState
+  [Cart State\n(reactive + derived totals)] as CartState
+}
+
+package "Domain Layer" {
+  [Menu + Pricing Rules] as Domain
+}
+
+database "localStorage\n(cart persistence)" as Storage
+
+User --> Routes
+Routes --> UI
+UI --> ConfigState : select/toggle/reset
+UI --> CartState : add/update/remove/checkout
+ConfigState --> Domain : compute total
+CartState --> Domain : format/price usage
+CartState <--> Storage : load/save cart
+ConfigState --> CartState : toConfig() on Add to Cart
+CartState --> UI : itemCount/total/isEmpty updates
+
+@enduml

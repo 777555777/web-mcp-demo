@@ -17,6 +17,19 @@ class ConfiguratorState {
 	/** Derived total price based on current selections. */
 	totalPrice: number = $derived(calculatePrice(this.selections));
 
+	/** Plain, non-reactive snapshot of current selections. */
+	getSelectionsSnapshot = (): Selections => {
+		return $state.snapshot(this.selections);
+	};
+
+	/** Plain snapshot of current configurator state. */
+	getSnapshot = (): { selections: Selections; totalPrice: number } => {
+		return {
+			selections: this.getSelectionsSnapshot(),
+			totalPrice: this.totalPrice
+		};
+	};
+
 	/**
 	 * Set a single-select category to a specific ingredient.
 	 */
@@ -73,7 +86,7 @@ class ConfiguratorState {
 	toConfig = (): PizzaConfig => {
 		return {
 			id: generateId(),
-			selections: structuredClone($state.snapshot(this.selections)),
+			selections: this.getSelectionsSnapshot(),
 			totalPrice: this.totalPrice
 		};
 	};

@@ -38,6 +38,26 @@ class CartState {
 	/** Whether the cart has any items. */
 	isEmpty: boolean = $derived(this.items.length === 0);
 
+	/** Plain snapshot of cart items without reactive proxies. */
+	getItemsSnapshot = (): CartItem[] => {
+		return $state.snapshot(this.items);
+	};
+
+	/** Plain snapshot of current cart state. */
+	getSnapshot = (): {
+		itemCount: number;
+		totalPrice: number;
+		isEmpty: boolean;
+		items: CartItem[];
+	} => {
+		return {
+			itemCount: this.itemCount,
+			totalPrice: this.totalPrice,
+			isEmpty: this.isEmpty,
+			items: this.getItemsSnapshot()
+		};
+	};
+
 	/** Persist current items to localStorage. */
 	private persist(): void {
 		if (typeof window === 'undefined') return;
@@ -97,7 +117,7 @@ class CartState {
 	placeOrder = (): Order => {
 		const order: Order = {
 			id: generateId(),
-			items: JSON.parse(JSON.stringify(this.items)),
+			items: this.getItemsSnapshot(),
 			totalPrice: this.totalPrice,
 			createdAt: new Date().toISOString()
 		};

@@ -1,0 +1,398 @@
+How to Implement WebMCP: A Step-by-Step Guide with Best Practices for Chrome 146+
+A practical step-by-step guide to implementing WebMCP (Web Model Context Protocol) in Next.js with code examples. Covers declarative HTML attributes, imperative tool registration, manifest discovery, and best practices to avoid common pitfalls.
+
+İlker Ulusoy
+2026-02-15
+15 min min read
+Share this article
+Chrome 146 introduces WebMCP (Web Model Context Protocol), a browser-native API that lets websites expose structured tools for AI agents. Instead of relying on screen scraping or brittle selectors, agents can now discover forms, understand their purpose, fill them intelligently, and even call imperative JavaScript functions directly. This step-by-step guide walks through implementing all three layers of WebMCP in a real Next.js project, with code examples and best practices from production.
+
+Try It Live
+We implemented WebMCP on our own website. If you have Chrome 146+ with WebMCP enabled, your AI agent can discover and interact with the contact form using both declarative and imperative pathways.Try on Contact Page
+→
+What Is WebMCP and Why Does It Matter?
+WebMCP is to AI agents what robots.txt is to search engine crawlers: a standardized way for websites to communicate with automated systems. But instead of telling crawlers what not to index, WebMCP tells AI agents what they can do on a page.
+
+Think of it as a structured menu for AI. When an agent visits a page with WebMCP support, it immediately knows: "This page has a contact form that accepts name, email, and message. I can either fill the form visually or call a JavaScript API to submit the data programmatically."
+
+Three layers work together to make this possible:
+
+Layer	How It Works	When AI Uses It
+Declarative HTML	Attributes on forms and inputs describe tool purpose	Agent fills form visually and clicks submit
+Imperative JavaScript	navigator.modelContext.registerTool() exposes an API	Agent calls the tool function directly via code
+Manifest Discovery	.well-known/webmcp endpoint and page-level JSON	Agent discovers available tools before navigating
+How to Set Up TypeScript Declarations for WebMCP
+Before adding any WebMCP attributes, set up TypeScript declarations. Without these, JSX will reject custom attributes like toolname and tooldescription with compilation errors.
+
+Create a types/webmcp.d.ts file that declares the global interfaces Chrome 146 provides:
+
+types/webmcp.d.ts
+export {};
+
+declare global {
+  interface WebMCPSubmitEvent extends Event {
+    agentInvoked?: boolean;
+    respondWith?: (response: string) => void;
+  }
+
+  interface WebMCPTool {
+    name: string;
+    description: string;
+    execute: (params: Record<string, unknown>) => unknown | Promise<unknown>;
+    inputSchema: {
+      type: string;
+      properties?: Record<string, {
+        type: string;
+        description?: string;
+        enum?: string[];
+      }>;
+      required?: string[];
+    };
+  }
+
+  interface ModelContext {
+    registerTool: (tool: WebMCPTool) => void;
+    unregisterTool: (name: string) => void;
+  }
+
+  interface Navigator {
+    modelContext?: ModelContext;
+  }
+}
+
+// Extend React JSX attributes for WebMCP
+declare module "react" {
+  interface HTMLAttributes<T> {
+    toolname?: string;
+    tooldescription?: string;
+    toolparamdescription?: string;
+  }
+}
+Best Practice: Why Global Declarations?
+These WebMCP APIs live on the browser's native objects (Navigator, SubmitEvent), not in an npm package. Global type declarations in a .d.ts file are the correct way to type browser APIs that don't ship with TypeScript's built-in lib definitions.
+How to Add Declarative HTML Attributes to Forms
+The declarative layer is the simplest to implement. Add three attributes to your existing forms:
+
+1
+toolname on the form element: a unique identifier the agent uses to reference this tool
+2
+tooldescription on the form element: a natural language description telling the agent when and why to use this form
+3
+toolparamdescription on each input, select, and textarea: context for each field, guiding the agent on what value to provide
+Declarative WebMCP Form Example
+<form
+  id="contactForm"
+  toolname="contact_form"
+  tooldescription="Submit a contact request with name, email, reason, and message."
+  noValidate
+  onSubmit={handleSubmit}
+>
+  <input
+    type="text"
+    name="name"
+    required
+    toolparamdescription="Full name of the person submitting the request"
+  />
+  <input
+    type="email"
+    name="email"
+    required
+    toolparamdescription="Email address for follow-up communication"
+  />
+  <select
+    name="reason"
+    toolparamdescription="Reason for contact: 'support', 'sales', 'partnership', or 'other'"
+  >
+    <option value="support">Support</option>
+    <option value="sales">Sales</option>
+    <option value="partnership">Partnership</option>
+    <option value="other">Other</option>
+  </select>
+  <textarea
+    name="message"
+    required
+    toolparamdescription="Detailed message describing the request or inquiry"
+  />
+  <button type="submit">Send</button>
+</form>
+Add noValidate to the form so AI agents can submit without triggering browser validation, and ensure every form has a stable id attribute (used in manifest selectors).
+
+Best Practice: Use Different Tool Names
+If you plan to also register an imperative tool (Step 4), the declarative toolname and the imperative tool's name must be different. Using the same name triggers a "Duplicate tool name" DOMException. For example, use contact_form for declarative and submit_contact_request for imperative.
+How to Handle Custom UI Components
+If your form uses custom UI components like button groups or radio cards instead of native select elements, add a hidden <select> element. AI agents can only discover options through standard HTML form elements. The hidden select provides the options list while your custom UI handles the visual interaction.
+
+How to Handle Agent Form Submissions in React
+When an AI agent fills and submits a declarative form, Chrome fires a normal submit event with two extra properties on the native event:
+
+agentInvoked: boolean — true when the AI agent triggered the submit
+respondWith(response: string) — sends a text response back to the agent
+React Submit Handler with WebMCP Agent Detection
+const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
+
+  // --- Declarative WebMCP path (AI agent) ---
+  const nativeEvent = e.nativeEvent as WebMCPSubmitEvent;
+  if (nativeEvent.agentInvoked) {
+    const fd = new FormData(e.currentTarget);
+    const data = {
+      name: fd.get("name") as string,
+      email: fd.get("email") as string,
+      reason: fd.get("reason") as string,
+      message: fd.get("message") as string,
+    };
+
+    const ref = "REF-" + Math.random().toString(36).substring(2, 8).toUpperCase();
+
+    // MUST be called synchronously, before any await!
+    nativeEvent.respondWith?.(
+      `Contact submitted successfully. Reference: ${ref}`
+    );
+
+    // Fire webhook in background (after respondWith)
+    await submitToBackend(data);
+    setSubmitted(true);
+    return;
+  }
+
+  // --- Human path (unchanged) ---
+  setIsSubmitting(true);
+  // ... existing form validation and submission logic ...
+};
+Critical: respondWith() Must Be Synchronous
+The respondWith() call must happen synchronously inside the submit handler, before any await statement. If you call it after an async operation, Chrome will have already closed the response channel and the agent will receive no feedback. Call respondWith() first, then do async work.
+The human submission path remains completely unchanged. The agentInvoked check creates a clean fork: AI submissions take the fast path (FormData extraction, immediate response), while human submissions continue through your existing validation and state management flow.
+
+How to Register Imperative Tools with Best Practices
+The imperative layer gives AI agents a second pathway: instead of visually filling forms, the agent calls a JavaScript function directly. This is faster, more reliable, and works even if the form UI is complex or dynamic.
+
+Best Practice: The Ref Guard Registration Pattern
+Use navigator.modelContext.registerTool() to register a tool with a name, description, JSON schema for inputs, and an execute function. Always guard the call with an existence check on navigator.modelContext since it only exists in Chrome 146+ with WebMCP enabled.
+
+Imperative Tool Registration with Ref Guard (React)
+const toolRegisteredRef = useRef(false);
+
+useEffect(() => {
+  const mc = navigator.modelContext;
+  if (!mc || toolRegisteredRef.current) return;
+  toolRegisteredRef.current = true;
+
+  mc.registerTool({
+    name: "submit_contact_request",
+    description: "Submit a contact request to the website programmatically.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Full name of the person" },
+        email: { type: "string", description: "Email address" },
+        reason: { type: "string", description: "Contact reason" },
+        message: { type: "string", description: "Message body" },
+      },
+      required: ["name", "email", "reason", "message"],
+    },
+    execute: async (params: Record<string, unknown>) => {
+      return dispatchAndWait("webmcp:submitContact", params);
+    },
+  });
+}, []);
+Do Not Use React Hooks for Registration
+A common instinct is to wrap registerTool in a custom hook. Do not do this. React strict mode double-mounts components in development, causing registerTool to be called twice with the same name. Chrome throws a "Duplicate tool name" DOMException. Instead, register directly in a useEffect with a useRef(false) guard that prevents re-registration.
+How to Bridge Imperative Tools with React State
+The imperative tool's execute function runs outside React's component tree. It cannot call setState or trigger re-renders directly. To bridge this gap, use the dispatchAndWait pattern:
+
+dispatchAndWait Helper Function
+export function dispatchAndWait(
+  eventName: string,
+  detail: Record<string, unknown>,
+  timeoutMs = 30000
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const requestId = Math.random().toString(36).substring(2, 15);
+    const completionEvent = `tool-completion-${requestId}`;
+    let timer: ReturnType<typeof setTimeout>;
+
+    const handleCompletion = (e: Event) => {
+      clearTimeout(timer);
+      window.removeEventListener(completionEvent, handleCompletion);
+      const customEvent = e as CustomEvent<{ result: string }>;
+      resolve(customEvent.detail?.result ?? "Action completed");
+    };
+
+    window.addEventListener(completionEvent, handleCompletion);
+
+    timer = setTimeout(() => {
+      window.removeEventListener(completionEvent, handleCompletion);
+      reject(new Error(`WebMCP tool timeout: ${eventName}`));
+    }, timeoutMs);
+
+    window.dispatchEvent(
+      new CustomEvent(eventName, { detail: { ...detail, requestId } })
+    );
+  });
+}
+Then listen for the event in your React component and signal completion:
+
+React Component Event Listener
+useEffect(() => {
+  const handler = (e: Event) => {
+    const { name, email, reason, message, requestId } =
+      (e as CustomEvent).detail;
+
+    // Update React state
+    setFormData({ name, email, reason, message });
+    submitToBackend({ name, email, reason, message });
+    setSubmitted(true);
+
+    // Signal completion back to the imperative tool
+    window.dispatchEvent(
+      new CustomEvent(`tool-completion-${requestId}`, {
+        detail: { result: "Contact submitted successfully." },
+      })
+    );
+  };
+
+  window.addEventListener("webmcp:submitContact", handler);
+  return () => window.removeEventListener("webmcp:submitContact", handler);
+}, []);
+How to Implement Manifest-Based Discovery
+The manifest layer enables pre-navigation discovery. Before an agent even opens a page, it can fetch the site manifest to learn what tools are available and where.
+
+How to Create a Site-Level Manifest in Next.js
+Serve a JSON manifest at /.well-known/webmcp. In Next.js, create an edge route handler:
+
+app/.well-known/webmcp/route.ts
+import { NextResponse } from "next/server";
+
+export const runtime = "edge";
+
+export async function GET() {
+  const manifest = {
+    spec: "webmcp/0.1",
+    site: {
+      name: "My Website",
+      version: "2026.02",
+      description: "Website description for AI agents.",
+      pages: [
+        {
+          url: "/contact",
+          intents: ["contact_form", "submit_contact_request"],
+        },
+      ],
+      flows: [
+        {
+          id: "contact_inquiry",
+          description: "Submit a contact request.",
+          steps: [{ intent: "contact_form", page: "/contact" }],
+        },
+      ],
+    },
+  };
+
+  return NextResponse.json(manifest, {
+    headers: {
+      "Cache-Control": "public, max-age=86400, s-maxage=86400",
+      "Access-Control-Allow-Origin": "*",
+    },
+  });
+}
+Best Practice: Exclude from i18n Middleware
+If your project uses i18n middleware (like next-intl), make sure to exclude /.well-known and /webmcp paths from locale processing. Otherwise the middleware will try to redirect the manifest URL to a localized version, breaking agent discovery.
+How to Add a Page-Level Manifest
+Embed a <script type="application/json" id="webmcp"> tag inside each page's HTML for page-specific tool metadata:
+
+Page-Level WebMCP Manifest
+{
+  "spec": "webmcp/0.1",
+  "page": { "url": "/contact", "title": "Contact Us" },
+  "context": {
+    "purpose": "Contact form for inquiries and support requests",
+    "entities": ["contact_request"],
+    "auth": { "required": false }
+  },
+  "intents": [
+    {
+      "id": "contact_form",
+      "description": "Submit a contact request with name, email, and message",
+      "inputs": [
+        { "name": "name", "type": "string", "required": true },
+        { "name": "email", "type": "email", "required": true },
+        { "name": "message", "type": "string", "required": true }
+      ],
+      "ui": {
+        "selectors": {
+          "form": "#contactForm",
+          "submit": "button[type='submit']"
+        }
+      },
+      "policy": {
+        "rateLimit": "5/min",
+        "safety": ["no PII scraping", "submit-only"]
+      },
+      "outcome": {
+        "successSelector": ".success-message",
+        "errorSelector": ".error-message"
+      }
+    }
+  ]
+}
+How to Add Visual Feedback with WebMCP CSS Pseudo-Classes
+Chrome 146 adds two new CSS pseudo-classes when an AI agent interacts with a form:
+
+:tool-form-active — applied to the form element while the agent is interacting with it
+:tool-submit-active — applied to the submit button while the agent is submitting
+These pseudo-classes must be injected at runtime via JavaScript because build-time CSS parsers (PostCSS, Tailwind, etc.) reject unknown pseudo-classes and will fail the build:
+
+components/WebMCPStyles.tsx
+"use client";
+import { useEffect } from "react";
+
+export default function WebMCPStyles() {
+  useEffect(() => {
+    const style = document.createElement("style");
+    style.setAttribute("data-webmcp", "true");
+    style.textContent = [
+      "*:tool-form-active {",
+      "  outline: 2px solid rgba(147, 51, 234, 0.5);",
+      "  outline-offset: 2px;",
+      "  box-shadow: 0 0 0 4px rgba(147, 51, 234, 0.1);",
+      "}",
+      "*:tool-submit-active {",
+      "  background: linear-gradient(110deg, #7c3aed 30%, #a78bfa 50%, #7c3aed 70%);",
+      "  background-size: 200% 100%;",
+      "  animation: webmcp-shimmer 2s infinite linear;",
+      "}",
+      "@keyframes webmcp-shimmer {",
+      "  to { background-position: 200% center; }",
+      "}",
+    ].join("\n");
+    document.head.appendChild(style);
+    return () => { style.remove(); };
+  }, []);
+
+  return null;
+}
+Add this component to your root layout so it's available on every page.
+
+WebMCP Implementation Pitfalls and How to Avoid Them
+Common Mistakes to Avoid
+Based on our production implementation experience, here are the most critical pitfalls when adding WebMCP support:
+1
+Same name for declarative and imperative tools. Chrome throws "Duplicate tool name" DOMException. Always use different names (e.g., contact_form vs submit_contact_request).
+2
+Calling respondWith() after await. The response channel closes before the async operation completes. Call respondWith() first, then do background work.
+3
+Using React hooks for registerTool. Strict mode double-mount calls registerTool twice. Use useEffect with a useRef guard instead.
+4
+Missing TypeScript declarations. Without the .d.ts file, toolname and tooldescription attributes cause TSX compilation errors. Set up types first.
+5
+Not excluding manifest routes from i18n middleware. Middleware redirects /.well-known/webmcp to /en/.well-known/webmcp, breaking discovery.
+6
+Adding WebMCP to sensitive forms. Never add toolname to forms handling passwords, credit cards, or other sensitive data.
+Best Practices and Key Takeaways
+WebMCP provides a standardized protocol for AI-website interaction, replacing fragile screen scraping with structured tool discovery.
+The three-layer architecture (declarative, imperative, manifest) gives agents multiple pathways to interact with your site, each optimized for different scenarios.
+TypeScript declarations are essential and should be the first step, before any attribute or API work.
+The ref guard pattern is the correct way to register imperative tools in React. Hooks cause duplicate registration errors.
+respondWith() must be synchronous. This is the single most critical rule in the declarative layer.
+WebMCP manifests act as a robots.txt for AI agents, enabling tool discovery before page navigation.
+As AI agents become more prevalent in browser workflows, WebMCP positions your website to be a first-class citizen in the agentic web. The implementation effort is modest, mostly adding attributes to existing forms, but the payoff is significant: your forms become discoverable and usable by any Chrome 146+ AI agent without any custom integration work.
