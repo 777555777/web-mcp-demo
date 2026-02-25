@@ -7,6 +7,7 @@
  */
 
 import type { CartItem, Order, PizzaConfig } from '$lib/domain/types.js';
+import { generateId } from '$lib/shared/utils';
 
 const STORAGE_KEY = 'forno-antico-cart';
 
@@ -95,7 +96,7 @@ class CartState {
 	 */
 	placeOrder = (): Order => {
 		const order: Order = {
-			id: crypto.randomUUID(),
+			id: generateId(),
 			items: JSON.parse(JSON.stringify(this.items)),
 			totalPrice: this.totalPrice,
 			createdAt: new Date().toISOString()

@@ -157,6 +157,7 @@
 			padding: var(--space-sm) var(--space-lg);
 			margin-inline: calc(-1 * var(--space-lg));
 			box-shadow: var(--shadow-sm);
+			margin-bottom: var(--space-lg);
 		}
 
 		.mobile-price-label {

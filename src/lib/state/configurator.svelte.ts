@@ -8,10 +8,7 @@
 import type { PizzaConfig, Selections } from '$lib/domain/types.js';
 import { categories, defaultSelections } from '$lib/domain/menu.js';
 import { calculatePrice } from '$lib/domain/pricing.js';
-
-function generateId(): string {
-	return crypto.randomUUID();
-}
+import { generateId } from '$lib/shared/utils';
 
 class ConfiguratorState {
 	/** Current ingredient selections keyed by category id. */
