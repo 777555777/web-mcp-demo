@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Button from '$lib/components/Button.svelte';
+	import ReviewForm from '$lib/components/ReviewForm.svelte';
 </script>
 
 <section class="hero">
@@ -36,6 +37,8 @@
 		</div>
 	</div>
 </section>
+
+<ReviewForm />
 
 <style>
 	/* Hero */

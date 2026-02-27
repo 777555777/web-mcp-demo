@@ -2,25 +2,25 @@ import { categories } from '$lib/domain/menu.js';
 import { cart } from '$lib/state/cart.svelte.js';
 import { configurator } from '$lib/state/configurator.svelte.js';
 
-type ToolResult = {
-	ok: boolean;
-	message: string;
-	data?: unknown;
-	error?: {
-		code: string;
-		details?: string;
-	};
-};
+/** Spec-compliant MCP content item. */
+type ContentItem = { type: 'text'; text: string };
+
+/** Spec-compliant tool result with content array. */
+type ToolResult = { content: ContentItem[] };
 
 function success(message: string, data?: unknown): ToolResult {
-	return { ok: true, message, data };
+	const payload = data !== undefined ? { ok: true, message, data } : { ok: true, message };
+	return { content: [{ type: 'text', text: JSON.stringify(payload) }] };
 }
 
 function failure(code: string, details: string): ToolResult {
 	return {
-		ok: false,
-		message: 'Tool call failed',
-		error: { code, details }
+		content: [
+			{
+				type: 'text',
+				text: JSON.stringify({ ok: false, error: { code, details } })
+			}
+		]
 	};
 }
 
@@ -73,7 +73,7 @@ function registerTools(modelContext: ModelContext): string[] {
 					return await tool.execute(params);
 				} catch (error) {
 					console.error(`[WebMCP] Tool ${tool.name} failed`, error);
-					return failure('UNEXPECTED_ERROR', 'Unexpected tool execution error.');
+					return failure('UNEXPECTED_ERROR', String(error));
 				}
 			}
 		});
@@ -89,6 +89,7 @@ function registerTools(modelContext: ModelContext): string[] {
 			additionalProperties: false,
 			properties: {}
 		},
+		annotations: { readOnlyHint: true },
 		execute: async () => {
 			return success('Catalog returned', {
 				categories
@@ -104,6 +105,7 @@ function registerTools(modelContext: ModelContext): string[] {
 			additionalProperties: false,
 			properties: {}
 		},
+		annotations: { readOnlyHint: true },
 		execute: async () => success('Configurator snapshot returned', getConfiguratorSnapshot())
 	});
 
@@ -213,6 +215,7 @@ function registerTools(modelContext: ModelContext): string[] {
 			additionalProperties: false,
 			properties: {}
 		},
+		annotations: { readOnlyHint: true },
 		execute: async () => success('Cart snapshot returned', getCartSnapshot())
 	});
 

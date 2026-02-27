@@ -5,33 +5,6 @@
 	import { formatPrice } from '$lib/domain/pricing.js';
 	import type { Order } from '$lib/domain/types.js';
 
-	const webmcpPageManifest = JSON.stringify({
-		spec: 'webmcp/0.1',
-		page: { url: '/order', title: 'Your Order' },
-		intents: [
-			{
-				id: 'cart.get_snapshot',
-				description: 'Read cart items, totals, and count.'
-			},
-			{
-				id: 'cart.update_item_quantity',
-				description: 'Update quantity for a cart line item by pizzaId.'
-			},
-			{
-				id: 'cart.remove_item',
-				description: 'Remove a cart item by pizzaId.'
-			},
-			{
-				id: 'cart.clear',
-				description: 'Remove all cart items.'
-			},
-			{
-				id: 'order.place',
-				description: 'Place order from cart and return order summary.'
-			}
-		]
-	});
-
 	let lastOrder: Order | null = $state(null);
 
 	function handlePlaceOrder() {
@@ -45,9 +18,6 @@
 
 <svelte:head>
 	<title>Your Cart — Forno Antico</title>
-	<script id="webmcp" type="application/json">
-{webmcpPageManifest}
-	</script>
 </svelte:head>
 
 <div class="order-page container">
