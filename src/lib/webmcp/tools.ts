@@ -8,6 +8,15 @@ type ContentItem = { type: 'text'; text: string };
 /** Spec-compliant tool result with content array. */
 type ToolResult = { content: ContentItem[] };
 
+/** Dev-only registry: maps tool name → schema + executable function. */
+export const devToolRegistry = new Map<
+	string,
+	{
+		schema: Omit<WebMCPTool, 'execute'>;
+		execute: (p: Record<string, unknown>) => Promise<ToolResult>;
+	}
+>();
+
 function success(message: string, data?: unknown): ToolResult {
 	const payload = data !== undefined ? { ok: true, message, data } : { ok: true, message };
 	return { content: [{ type: 'text', text: JSON.stringify(payload) }] };
@@ -58,7 +67,7 @@ function isPositiveInt(value: unknown): value is number {
 	return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 20;
 }
 
-function registerTools(modelContext: ModelContext): string[] {
+function registerTools(modelContext: ModelContext | null): string[] {
 	const registered: string[] = [];
 
 	const register = (
@@ -66,17 +75,22 @@ function registerTools(modelContext: ModelContext): string[] {
 			execute: (params: Record<string, unknown>) => Promise<ToolResult>;
 		}
 	) => {
-		modelContext.registerTool({
-			...tool,
-			execute: async (params) => {
-				try {
-					return await tool.execute(params);
-				} catch (error) {
-					console.error(`[WebMCP] Tool ${tool.name} failed`, error);
-					return failure('UNEXPECTED_ERROR', String(error));
-				}
+		const wrappedExecute = async (params: Record<string, unknown>): Promise<ToolResult> => {
+			try {
+				return await tool.execute(params);
+			} catch (error) {
+				console.error(`[WebMCP] Tool ${tool.name} failed`, error);
+				return failure('UNEXPECTED_ERROR', String(error));
 			}
-		});
+		};
+
+		if (modelContext) {
+			modelContext.registerTool({ ...tool, execute: wrappedExecute });
+		}
+
+		const { execute: __execute, ...schema } = tool;
+		void __execute; // intentionally discarded — wrapped version is stored below
+		devToolRegistry.set(tool.name, { schema, execute: wrappedExecute });
 		registered.push(tool.name);
 	};
 
@@ -327,19 +341,27 @@ export function initWebMCPTools(): { enabled: boolean; tools: string[] } {
 	if (alreadyInitialized) {
 		return { enabled: true, tools: [] };
 	}
+	alreadyInitialized = true;
 
 	if (typeof window === 'undefined') {
 		return { enabled: false, tools: [] };
 	}
 
-	const modelContext = navigator.modelContext;
-	if (!modelContext) {
+	const modelContext = navigator.modelContext ?? null;
+
+	if (!modelContext && !import.meta.env.DEV) {
 		return { enabled: false, tools: [] };
 	}
 
 	const tools = registerTools(modelContext);
-	alreadyInitialized = true;
 
-	console.info('[WebMCP] Registered tools:', tools.join(', '));
-	return { enabled: true, tools };
+	if (modelContext) {
+		console.info('[WebMCP] Registered tools:', tools.join(', '));
+		return { enabled: true, tools };
+	}
+
+	console.info(
+		'[WebMCP] navigator.modelContext not available — dev registry populated for test panel.'
+	);
+	return { enabled: false, tools };
 }

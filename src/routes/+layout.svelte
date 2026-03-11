@@ -6,6 +6,8 @@
 	import { onNavigate } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { initWebMCPTools } from '$lib/webmcp/tools.js';
+	import { dev } from '$app/environment';
+	import WebMCPDevPanel from '$lib/components/WebMCPDevPanel.svelte';
 
 	let { children } = $props();
 
@@ -38,6 +40,10 @@
 	</main>
 	<Footer />
 </div>
+
+{#if dev}
+	<WebMCPDevPanel />
+{/if}
 
 <style>
 	.app-shell {

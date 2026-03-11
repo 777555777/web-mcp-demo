@@ -81,7 +81,10 @@ export const categories: Category[] = [
 			{ id: 'arugula', name: 'Arugula', emoji: '🥬', price: 0.75 },
 			{ id: 'anchovies', name: 'Anchovies', emoji: '🐟', price: 1.5 },
 			{ id: 'jalapenos', name: 'Jalapeños', emoji: '🌶️', price: 1 },
-			{ id: 'truffle', name: 'Truffle Oil', emoji: '🫘', price: 3 }
+			{ id: 'truffle', name: 'Truffle Oil', emoji: '🫘', price: 3 },
+			{ id: 'pineapple', name: 'Pineapple', emoji: '🍍', price: 1 },
+			{ id: 'tuna', name: 'Tuna', emoji: '🐟', price: 1.5 },
+			{ id: 'capers', name: 'Capers', emoji: '🫛', price: 0.75 }
 		]
 	}
 ];
