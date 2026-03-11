@@ -26,8 +26,6 @@ declare global {
 	interface ModelContext {
 		registerTool: (tool: WebMCPTool) => void;
 		unregisterTool: (toolName: string) => void;
-		provideContext: (context: { tools: WebMCPTool[] }) => void;
-		clearContext: () => void;
 	}
 
 	interface Navigator {
