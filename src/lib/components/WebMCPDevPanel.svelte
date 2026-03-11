@@ -277,12 +277,12 @@
 				</label>
 				<div class="settings-hints">
 					<p>
-						<strong>GitHub Models</strong> (Copilot): URL oben lassen, Key = GitHub PAT, Model =
+						<strong>GitHub Models</strong> (Copilot): keep URL as-is, Key = GitHub PAT, Model =
 						<code>gpt-4o-mini</code>
 					</p>
 					<p>
 						<strong>LM Studio</strong>: URL = <code>http://localhost:1234/v1</code>, Key =
-						<code>lm-studio</code>, Model = API-Identifier aus LM Studio (z.B.
+						<code>lm-studio</code>, Model = API identifier from LM Studio (e.g.
 						<code>qwen/qwen3.5-9b</code>)
 					</p>
 					<p>
@@ -292,10 +292,10 @@
 					<p>
 						GitHub PAT: <a href="https://github.com/settings/tokens" target="_blank" rel="noopener"
 							>github.com/settings/tokens</a
-						> — kein Scope nötig.
+						> — no scope required.
 					</p>
 				</div>
-				<button class="save-btn" onclick={saveSettings}>Speichern</button>
+				<button class="save-btn" onclick={saveSettings}>Save</button>
 			</div>
 		{/if}
 
@@ -303,8 +303,8 @@
 		<div class="messages" bind:this={messagesEl}>
 			{#if messages.length === 0}
 				<p class="empty-hint">
-					Tools registriert: <strong>{devToolRegistry.size}</strong><br />Schreib z.B.
-					<em>„Konfiguriere eine Margherita und leg sie in den Warenkorb"</em>
+					Tools registered: <strong>{devToolRegistry.size}</strong><br />Try e.g.
+					<em>"Configure a Margherita and add it to the cart"</em>
 				</p>
 			{/if}
 			{#each messages as msg (msg.id)}
@@ -317,7 +317,7 @@
 						{@const thinkMatch = msg.content.match(/^\s*<think>([\s\S]*?)<\/think>\s*/i)}
 						{#if thinkMatch}
 							<details class="think-block">
-								<summary>Gedanken</summary>
+								<summary>Thoughts</summary>
 								<pre>{thinkMatch[1].trim()}</pre>
 							</details>
 						{/if}
@@ -339,7 +339,7 @@
 			<textarea
 				bind:value={inputText}
 				onkeydown={onInputKeydown}
-				placeholder="Nachricht schreiben… (Enter = Senden)"
+				placeholder="Type a message… (Enter to send)"
 				rows="2"
 				disabled={loading}
 			></textarea>
