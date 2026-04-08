@@ -24,8 +24,7 @@ declare global {
 	}
 
 	interface ModelContext {
-		registerTool: (tool: WebMCPTool) => void;
-		unregisterTool: (toolName: string) => void;
+		registerTool: (tool: WebMCPTool, options?: { signal?: AbortSignal }) => void;
 	}
 
 	interface Navigator {
@@ -41,7 +40,6 @@ declare global {
 	}
 
 	interface WebMCPParamAttributes {
-		toolparamtitle?: string;
 		toolparamdescription?: string;
 	}
 

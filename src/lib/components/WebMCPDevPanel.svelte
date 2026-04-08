@@ -99,6 +99,7 @@
 			'Respond in the same language the user writes in.',
 			'IMPORTANT: Only call order__place when the user explicitly asks to order, place the order, or checkout.',
 			'If the user only says "add to cart", "in den Warenkorb" or similar — stop after cart__add_current_pizza. Do NOT place the order.',
+			'After ordering, provide a short confirmation message to the user.',
 			'',
 			'## Menu knowledge',
 			'',

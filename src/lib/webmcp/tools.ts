@@ -67,7 +67,7 @@ function isPositiveInt(value: unknown): value is number {
 	return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 20;
 }
 
-function registerTools(modelContext: ModelContext | null): string[] {
+function registerTools(modelContext: ModelContext | null, signal?: AbortSignal): string[] {
 	const registered: string[] = [];
 
 	const register = (
@@ -85,7 +85,10 @@ function registerTools(modelContext: ModelContext | null): string[] {
 		};
 
 		if (modelContext) {
-			modelContext.registerTool({ ...tool, execute: wrappedExecute });
+			modelContext.registerTool(
+				{ ...tool, execute: wrappedExecute },
+				signal ? { signal } : undefined
+			);
 		}
 
 		const { execute: __execute, ...schema } = tool;
@@ -336,32 +339,43 @@ function registerTools(modelContext: ModelContext | null): string[] {
 }
 
 let alreadyInitialized = false;
+let abortController: AbortController | null = null;
 
-export function initWebMCPTools(): { enabled: boolean; tools: string[] } {
+export function initWebMCPTools(): { enabled: boolean; tools: string[]; cleanup: () => void } {
+	const noop = () => {};
+
 	if (alreadyInitialized) {
-		return { enabled: true, tools: [] };
+		return { enabled: true, tools: [], cleanup: noop };
 	}
 	alreadyInitialized = true;
 
 	if (typeof window === 'undefined') {
-		return { enabled: false, tools: [] };
+		return { enabled: false, tools: [], cleanup: noop };
 	}
 
 	const modelContext = navigator.modelContext ?? null;
 
 	if (!modelContext && !import.meta.env.DEV) {
-		return { enabled: false, tools: [] };
+		return { enabled: false, tools: [], cleanup: noop };
 	}
 
-	const tools = registerTools(modelContext);
+	abortController = new AbortController();
+	const tools = registerTools(modelContext, abortController.signal);
+
+	const cleanup = () => {
+		abortController?.abort();
+		abortController = null;
+		alreadyInitialized = false;
+		devToolRegistry.clear();
+	};
 
 	if (modelContext) {
 		console.info('[WebMCP] Registered tools:', tools.join(', '));
-		return { enabled: true, tools };
+		return { enabled: true, tools, cleanup };
 	}
 
 	console.info(
 		'[WebMCP] navigator.modelContext not available — dev registry populated for test panel.'
 	);
-	return { enabled: false, tools };
+	return { enabled: false, tools, cleanup };
 }

@@ -119,7 +119,6 @@
 							id="rating"
 							name="rating"
 							required
-							toolparamtitle="rating"
 							toolparamdescription="Star rating from 1 (poor) to 5 (excellent)."
 							bind:value={rating}
 						>
