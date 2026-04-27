@@ -67,6 +67,16 @@ function isPositiveInt(value: unknown): value is number {
 	return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 20;
 }
 
+const trustedReadOnlyAnnotations: WebMCPToolAnnotations = {
+	readOnlyHint: true,
+	untrustedContentHint: false
+};
+
+const trustedMutationAnnotations: WebMCPToolAnnotations = {
+	readOnlyHint: false,
+	untrustedContentHint: false
+};
+
 function registerTools(modelContext: ModelContext | null, signal?: AbortSignal): string[] {
 	const registered: string[] = [];
 
@@ -106,7 +116,7 @@ function registerTools(modelContext: ModelContext | null, signal?: AbortSignal):
 			additionalProperties: false,
 			properties: {}
 		},
-		annotations: { readOnlyHint: true },
+		annotations: trustedReadOnlyAnnotations,
 		execute: async () => {
 			return success('Catalog returned', {
 				categories
@@ -122,11 +132,12 @@ function registerTools(modelContext: ModelContext | null, signal?: AbortSignal):
 			additionalProperties: false,
 			properties: {}
 		},
-		annotations: { readOnlyHint: true },
+		annotations: trustedReadOnlyAnnotations,
 		execute: async () => success('Configurator snapshot returned', getConfiguratorSnapshot())
 	});
 
 	register({
+		annotations: trustedMutationAnnotations,
 		name: 'configurator.set_selection',
 		description:
 			'Set or toggle an ingredient in a category. Use mode="set" for single-select categories and mode="toggle" for multi-select categories.',
@@ -202,6 +213,7 @@ function registerTools(modelContext: ModelContext | null, signal?: AbortSignal):
 			additionalProperties: false,
 			properties: {}
 		},
+		annotations: trustedMutationAnnotations,
 		execute: async () => {
 			configurator.reset();
 			return success('Configurator reset to defaults', getConfiguratorSnapshot());
@@ -217,6 +229,7 @@ function registerTools(modelContext: ModelContext | null, signal?: AbortSignal):
 			additionalProperties: false,
 			properties: {}
 		},
+		annotations: trustedMutationAnnotations,
 		execute: async () => {
 			const config = configurator.toConfig();
 			cart.addPizza(config);
@@ -232,11 +245,12 @@ function registerTools(modelContext: ModelContext | null, signal?: AbortSignal):
 			additionalProperties: false,
 			properties: {}
 		},
-		annotations: { readOnlyHint: true },
+		annotations: trustedReadOnlyAnnotations,
 		execute: async () => success('Cart snapshot returned', getCartSnapshot())
 	});
 
 	register({
+		annotations: trustedMutationAnnotations,
 		name: 'cart.update_item_quantity',
 		description:
 			'Update quantity for a cart pizza item by pizzaId. Set quantity to 0 to remove the item.',
@@ -311,6 +325,7 @@ function registerTools(modelContext: ModelContext | null, signal?: AbortSignal):
 			additionalProperties: false,
 			properties: {}
 		},
+		annotations: trustedMutationAnnotations,
 		execute: async () => {
 			cart.clear();
 			return success('Cart cleared', getCartSnapshot());
@@ -325,6 +340,7 @@ function registerTools(modelContext: ModelContext | null, signal?: AbortSignal):
 			additionalProperties: false,
 			properties: {}
 		},
+		annotations: trustedMutationAnnotations,
 		execute: async () => {
 			if (cart.isEmpty) {
 				return failure('CART_EMPTY', 'Cannot place order because cart is empty.');

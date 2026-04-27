@@ -1,6 +1,12 @@
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
 declare global {
+	interface WebMCPToolAnnotations {
+		readOnlyHint?: boolean;
+		untrustedContentHint?: boolean;
+		[key: string]: unknown;
+	}
+
 	interface WebMCPTool {
 		name: string;
 		description: string;
@@ -19,7 +25,7 @@ declare global {
 			>;
 			required?: string[];
 		};
-		annotations?: Record<string, unknown>;
+		annotations?: WebMCPToolAnnotations;
 		execute: (params: Record<string, unknown>) => unknown | Promise<unknown>;
 	}
 
