@@ -21,6 +21,10 @@ function loadFromStorage(): CartItem[] {
 	}
 }
 
+function areSelectionsEqual(left: PizzaConfig, right: PizzaConfig): boolean {
+	return JSON.stringify(left.selections) === JSON.stringify(right.selections);
+}
+
 class CartState {
 	/** All items in the cart. */
 	items: CartItem[] = $state(loadFromStorage());
@@ -71,8 +75,17 @@ class CartState {
 	/**
 	 * Add a configured pizza to the cart.
 	 */
-	addPizza = (config: PizzaConfig): void => {
-		this.items.push({ pizza: config, quantity: 1 });
+	addPizza = (config: PizzaConfig, quantity = 1): void => {
+		if (!Number.isInteger(quantity) || quantity <= 0) return;
+
+		const existingItem = this.items.find((item) => areSelectionsEqual(item.pizza, config));
+		if (existingItem) {
+			existingItem.quantity += quantity;
+			this.persist();
+			return;
+		}
+
+		this.items.push({ pizza: config, quantity });
 		this.persist();
 	};
 

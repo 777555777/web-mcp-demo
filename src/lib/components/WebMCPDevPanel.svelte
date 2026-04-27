@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { cart } from '$lib/state/cart.svelte.js';
+	import { configurator } from '$lib/state/configurator.svelte.js';
 	import { devToolRegistry } from '$lib/webmcp/tools.js';
 
 	const MAX_AGENT_STEPS = 24;
@@ -115,19 +117,27 @@
 			'You are an AI assistant embedded directly into "Forno Antico", a pizza ordering web application.',
 			'You have access to WebMCP tools that let you read and control the app in real time.',
 			`Available tools: ${toolList}.`,
+			'The trash-can reset in the dev panel starts a fresh customer session with an empty cart and default configurator state.',
 			'',
 			'Workflow:',
 			'1. You already know the full menu below — no need to call menu__get_catalog unless the user asks for details.',
 			'2. For a fresh pizza build, prefer configurator__configure_pizza to apply the full target configuration in one call.',
 			'3. Use configurator__set_selection only for small follow-up changes to the current pizza.',
-			'4. Call cart__add_current_pizza to add it to the cart.',
-			'5. Call order__place only when the user explicitly asks to order or checkout.',
+			'4. For multiple pizzas, complete them one at a time. After each finished pizza, prefer cart__add_current_pizza_and_reset before starting the next one.',
+			'5. If the user requests repeated identical pizzas up front, prefer quantity on cart__add_current_pizza or cart__add_current_pizza_and_reset instead of repeating the same add flow.',
+			'6. If the user changes the amount of a pizza that is already in the cart, prefer cart__get_snapshot followed by cart__update_item_quantity instead of adding a duplicate line item.',
+			'7. For a single pizza, call cart__add_current_pizza or cart__add_current_pizza_and_reset to add it to the cart.',
+			'8. Call order__place only when the user explicitly asks to order or checkout.',
 			'',
 			'Always use the tools when the user asks you to do something on the website.',
 			'Before the first tool call in a multi-step task, send one short acknowledgement to the user.',
 			'Never tell the user you cannot interact with the website — you can, via these tools.',
 			'After completing a multi-step task, give a short summary (not a step-by-step log).',
+			'After adding items to the cart, always mention the current cart total.',
+			'After placing an order, always include the final total and a concise item summary.',
 			'Once the pizza matches the request, stop configuring immediately and move to the next step.',
+			'For multi-pizza requests, do not go back and reconfigure an earlier pizza after you have already added it to the cart.',
+			'Use cart__get_snapshot to verify multi-pizza progress instead of repeatedly calling configurator__get_current.',
 			'Do not repeat the same tool call unless the latest tool result shows the requested state is still missing.',
 			'Respond in the same language the user writes in.',
 			'IMPORTANT: Only call order__place when the user explicitly asks to order, place the order, or checkout.',
@@ -140,7 +150,7 @@
 			'Dough (single-select): classic=Classic €0 | thin=Thin Crust €0 | wholewheat=Whole Wheat +€1 | stuffed=Stuffed Crust +€2',
 			'Sauce (single-select): tomato=Tomato €0 | white=Alfredo +€0.50 | pesto=Pesto +€0.50 | bbq=BBQ +€0.50 | none=No Sauce €0',
 			'Cheese (multi-select): mozzarella €0 | parmesan=Parmigiano +€1 | gorgonzola +€1.50 | burrata +€2 | ricotta +€1 | vegan=Vegan Cheese +€1.50',
-			'Toppings (multi-select): pepperoni +€1.50 | ham=Prosciutto +€2 | salami +€1.50 | mushrooms +€1 | olives +€1 | peppers=Bell Peppers +€1 | onions=Red Onions +€0.75 | artichokes +€1.50 | arugula +€0.75 | anchovies +€1.50 | jalapenos=Jalapeños +€1 | truffle=Truffle Oil +€3 | pineapple +€1 | tuna +€1.50 | capers +€0.75',
+			'Toppings (multi-select): pepperoni +€1.50 | ham=Prosciutto +€2 | salami +€1.50 | chicken +€2 | mushrooms +€1 | olives +€1 | peppers=Bell Peppers +€1 | onions=Red Onions +€0.75 | artichokes +€1.50 | arugula +€0.75 | anchovies +€1.50 | jalapenos=Jalapeños +€1 | truffle=Truffle Oil +€3 | pineapple +€1 | tuna +€1.50 | capers +€0.75',
 			'',
 			'## Classic pizza presets',
 			'When a user names a classic pizza, map it to these ingredients using the IDs above.',
@@ -153,7 +163,7 @@
 			'Prosciutto e Funghi: sauce=tomato, cheese=[mozzarella], toppings=[ham, mushrooms]',
 			'Vegetariana: sauce=pesto, cheese=[mozzarella], toppings=[peppers, onions, olives, artichokes, arugula]',
 			'Capricciosa: sauce=tomato, cheese=[mozzarella], toppings=[ham, mushrooms, artichokes, olives]',
-			'BBQ Chicken (house special): sauce=bbq, dough=stuffed, cheese=[mozzarella, burrata], toppings=[pepperoni, onions, peppers]',
+			'BBQ Chicken (house special): sauce=bbq, dough=stuffed, cheese=[mozzarella, burrata], toppings=[chicken, onions, peppers]',
 			'Tartufo: sauce=white, dough=thin, cheese=[mozzarella, parmesan], toppings=[mushrooms, arugula, truffle]',
 			'Hawaii: sauce=tomato, cheese=[mozzarella], toppings=[ham, pineapple]',
 			'Pepperoni: sauce=tomato, cheese=[mozzarella], toppings=[pepperoni]',
@@ -164,7 +174,7 @@
 			'## Handling unavailable ingredients',
 			'If a user requests an ingredient not in the menu, tell them it is not available and suggest the closest alternative.',
 			'Ask whether to proceed with the substitution or skip it before making any tool calls.',
-			'Example: "Unfortunately, we don\'t have chicken, but we do have prosciutto or salami as alternatives. Should I take one of those?"'
+			'Example: "Unfortunately, we don\'t have shrimp, but we do have tuna or anchovies as alternatives. Should I take one of those?"'
 		].join('\n');
 	}
 
@@ -270,6 +280,10 @@
 	function clearChat() {
 		messages = [];
 		apiConversation = [];
+		inputText = '';
+		msgCounter = 0;
+		configurator.reset();
+		cart.clear();
 	}
 
 	function onInputKeydown(e: KeyboardEvent) {
@@ -299,7 +313,8 @@
 				<button class="icon-btn" onclick={() => (showSettings = !showSettings)} title="Settings"
 					>⚙️</button
 				>
-				<button class="icon-btn" onclick={clearChat} title="Clear chat">🗑</button>
+				<button class="icon-btn" onclick={clearChat} title="Start a new customer session">🗑</button
+				>
 				<button class="icon-btn" onclick={() => (open = false)} title="Close">✕</button>
 			</div>
 		</div>

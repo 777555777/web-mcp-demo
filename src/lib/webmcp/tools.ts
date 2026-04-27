@@ -78,6 +78,10 @@ function isPositiveInt(value: unknown): value is number {
 	return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 20;
 }
 
+function isAddQuantity(value: unknown): value is number {
+	return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 20;
+}
+
 const trustedReadOnlyAnnotations: WebMCPToolAnnotations = {
 	readOnlyHint: true,
 	untrustedContentHint: false
@@ -308,23 +312,69 @@ function registerTools(modelContext: ModelContext | null, signal?: AbortSignal):
 	register({
 		name: 'cart.add_current_pizza',
 		description:
-			'Create a pizza config from current selections and add it to cart with quantity 1. Returns updated cart snapshot.',
+			'Create a pizza config from current selections and add it to cart. Use quantity > 1 for repeated identical pizzas in the same request. Keeps the configurator as-is and returns the updated cart snapshot.',
 		inputSchema: {
 			type: 'object',
 			additionalProperties: false,
-			properties: {}
+			properties: {
+				quantity: {
+					type: 'number',
+					minimum: 1,
+					maximum: 20,
+					description: 'Optional quantity to add for this exact pizza configuration. Defaults to 1.'
+				}
+			}
 		},
 		annotations: trustedMutationAnnotations,
-		execute: async () => {
+		execute: async (params) => {
+			const quantity = params.quantity === undefined ? 1 : params.quantity;
+			if (!isAddQuantity(quantity)) {
+				return failure('INVALID_QUANTITY', 'quantity must be an integer between 1 and 20.');
+			}
+
 			const config = configurator.toConfig();
-			cart.addPizza(config);
+			cart.addPizza(config, quantity);
 			return success('Pizza added to cart', getCartSnapshot());
 		}
 	});
 
 	register({
+		name: 'cart.add_current_pizza_and_reset',
+		description:
+			'Add the currently configured pizza to the cart, then reset the configurator to defaults for the next pizza. Use quantity > 1 for repeated identical pizzas in the same request. Prefer this when building multiple pizzas in one request.',
+		inputSchema: {
+			type: 'object',
+			additionalProperties: false,
+			properties: {
+				quantity: {
+					type: 'number',
+					minimum: 1,
+					maximum: 20,
+					description: 'Optional quantity to add for this exact pizza configuration. Defaults to 1.'
+				}
+			}
+		},
+		annotations: trustedMutationAnnotations,
+		execute: async (params) => {
+			const quantity = params.quantity === undefined ? 1 : params.quantity;
+			if (!isAddQuantity(quantity)) {
+				return failure('INVALID_QUANTITY', 'quantity must be an integer between 1 and 20.');
+			}
+
+			const config = configurator.toConfig();
+			cart.addPizza(config, quantity);
+			configurator.reset();
+			return success('Pizza added to cart and configurator reset', {
+				cart: getCartSnapshot(),
+				configurator: getConfiguratorSnapshot()
+			});
+		}
+	});
+
+	register({
 		name: 'cart.get_snapshot',
-		description: 'Return cart items, totals, and item count.',
+		description:
+			'Return cart items, totals, and item count. Use this before changing the quantity of an existing pizza, especially for references like "that pizza" or "make it two".',
 		inputSchema: {
 			type: 'object',
 			additionalProperties: false,
@@ -338,7 +388,7 @@ function registerTools(modelContext: ModelContext | null, signal?: AbortSignal):
 		annotations: trustedMutationAnnotations,
 		name: 'cart.update_item_quantity',
 		description:
-			'Update quantity for a cart pizza item by pizzaId. Set quantity to 0 to remove the item.',
+			'Update quantity for a cart pizza item by pizzaId. Prefer this when the user changes the amount of a pizza already in the cart, for example "make it two of that pizza". Set quantity to 0 to remove the item.',
 		inputSchema: {
 			type: 'object',
 			additionalProperties: false,

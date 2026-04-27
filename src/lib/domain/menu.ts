@@ -73,6 +73,7 @@ export const categories: Category[] = [
 			{ id: 'pepperoni', name: 'Pepperoni', emoji: '🥓', price: 1.5 },
 			{ id: 'ham', name: 'Prosciutto', emoji: '🍖', price: 2 },
 			{ id: 'salami', name: 'Salami', emoji: '🥩', price: 1.5 },
+			{ id: 'chicken', name: 'Chicken', emoji: '🍗', price: 2 },
 			{ id: 'mushrooms', name: 'Mushrooms', emoji: '🍄', price: 1 },
 			{ id: 'olives', name: 'Olives', emoji: '🫒', price: 1 },
 			{ id: 'peppers', name: 'Bell Peppers', emoji: '🫑', price: 1 },
