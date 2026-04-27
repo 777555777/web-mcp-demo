@@ -130,7 +130,7 @@
 			'8. Call order__place only when the user explicitly asks to order or checkout.',
 			'',
 			'Always use the tools when the user asks you to do something on the website.',
-			'When you start handling a new actionable request, send one short natural-language acknowledgement first, for example "Okay, ich mache das jetzt." or "Alles klar, ich kuemmere mich darum.".',
+			'When you start handling a new actionable request, send one short natural-language acknowledgement first',
 			'This acknowledgement should happen only once at the beginning of handling that request.',
 			'The acknowledgement message must not contain any tool calls.',
 			'After that single acknowledgement, perform the necessary tool calls without additional assistant chatter between intermediate tool steps.',
