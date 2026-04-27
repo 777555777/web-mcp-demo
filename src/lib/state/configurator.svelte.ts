@@ -80,6 +80,13 @@ class ConfiguratorState {
 	};
 
 	/**
+	 * Replace the full selection object in one step.
+	 */
+	replaceSelections = (selections: Selections): void => {
+		this.selections = structuredClone(selections);
+	};
+
+	/**
 	 * Build a PizzaConfig snapshot for adding to cart.
 	 * Uses $state.snapshot() to strip reactive proxies before cloning.
 	 */

@@ -1,6 +1,18 @@
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
 declare global {
+	type WebMCPSchema = {
+		type?: string;
+		description?: string;
+		enum?: string[];
+		minimum?: number;
+		maximum?: number;
+		items?: WebMCPSchema;
+		properties?: Record<string, WebMCPSchema>;
+		required?: string[];
+		additionalProperties?: boolean;
+	};
+
 	interface WebMCPToolAnnotations {
 		readOnlyHint?: boolean;
 		untrustedContentHint?: boolean;
@@ -10,21 +22,7 @@ declare global {
 	interface WebMCPTool {
 		name: string;
 		description: string;
-		inputSchema: {
-			type: 'object';
-			additionalProperties?: boolean;
-			properties?: Record<
-				string,
-				{
-					type?: string;
-					description?: string;
-					enum?: string[];
-					minimum?: number;
-					maximum?: number;
-				}
-			>;
-			required?: string[];
-		};
+		inputSchema: WebMCPSchema & { type: 'object' };
 		annotations?: WebMCPToolAnnotations;
 		execute: (params: Record<string, unknown>) => unknown | Promise<unknown>;
 	}

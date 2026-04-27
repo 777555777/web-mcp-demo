@@ -1,4 +1,5 @@
 import { categories } from '$lib/domain/menu.js';
+import type { Selections } from '$lib/domain/types.js';
 import { cart } from '$lib/state/cart.svelte.js';
 import { configurator } from '$lib/state/configurator.svelte.js';
 
@@ -61,6 +62,16 @@ function isIngredientInCategory(categoryId: string, ingredientId: unknown): ingr
 	const category = categories.find((entry) => entry.id === categoryId);
 	if (!category) return false;
 	return category.ingredients.some((ingredient) => ingredient.id === ingredientId);
+}
+
+function areIngredientIdsInCategory(
+	categoryId: string,
+	ingredientIds: unknown
+): ingredientIds is string[] {
+	return (
+		Array.isArray(ingredientIds) &&
+		ingredientIds.every((entry) => isIngredientInCategory(categoryId, entry))
+	);
 }
 
 function isPositiveInt(value: unknown): value is number {
@@ -134,6 +145,80 @@ function registerTools(modelContext: ModelContext | null, signal?: AbortSignal):
 		},
 		annotations: trustedReadOnlyAnnotations,
 		execute: async () => success('Configurator snapshot returned', getConfiguratorSnapshot())
+	});
+
+	register({
+		annotations: trustedMutationAnnotations,
+		name: 'configurator.configure_pizza',
+		description:
+			'Replace the current pizza configuration in one call. Prefer this for a new pizza or named preset. Omit fields you want to keep at their defaults.',
+		inputSchema: {
+			type: 'object',
+			additionalProperties: false,
+			properties: {
+				sizeId: {
+					type: 'string',
+					description: 'Optional size ID (small, medium, large, family).'
+				},
+				doughId: {
+					type: 'string',
+					description: 'Optional dough ID (classic, thin, wholewheat, stuffed).'
+				},
+				sauceId: {
+					type: 'string',
+					description: 'Optional sauce ID (tomato, white, pesto, bbq, none).'
+				},
+				cheeseIds: {
+					type: 'array',
+					description: 'Optional full cheese list to apply from scratch.',
+					items: {
+						type: 'string'
+					}
+				},
+				toppingIds: {
+					type: 'array',
+					description: 'Optional full toppings list to apply from scratch.',
+					items: {
+						type: 'string'
+					}
+				}
+			}
+		},
+		execute: async (params) => {
+			const { sizeId, doughId, sauceId, cheeseIds, toppingIds } = params;
+
+			if (sizeId !== undefined && !isIngredientInCategory('size', sizeId)) {
+				return failure('INVALID_SIZE', 'sizeId is invalid.');
+			}
+
+			if (doughId !== undefined && !isIngredientInCategory('dough', doughId)) {
+				return failure('INVALID_DOUGH', 'doughId is invalid.');
+			}
+
+			if (sauceId !== undefined && !isIngredientInCategory('sauce', sauceId)) {
+				return failure('INVALID_SAUCE', 'sauceId is invalid.');
+			}
+
+			if (cheeseIds !== undefined && !areIngredientIdsInCategory('cheese', cheeseIds)) {
+				return failure('INVALID_CHEESE', 'cheeseIds must only contain valid cheese IDs.');
+			}
+
+			if (toppingIds !== undefined && !areIngredientIdsInCategory('toppings', toppingIds)) {
+				return failure('INVALID_TOPPINGS', 'toppingIds must only contain valid topping IDs.');
+			}
+
+			const nextSelections: Selections = {
+				...configurator.getSelectionsSnapshot(),
+				size: typeof sizeId === 'string' ? sizeId : 'medium',
+				dough: typeof doughId === 'string' ? doughId : 'classic',
+				sauce: typeof sauceId === 'string' ? sauceId : 'tomato',
+				cheese: Array.isArray(cheeseIds) ? [...cheeseIds] : ['mozzarella'],
+				toppings: Array.isArray(toppingIds) ? [...toppingIds] : []
+			};
+
+			configurator.replaceSelections(nextSelections);
+			return success('Pizza configured from scratch', getConfiguratorSnapshot());
+		}
 	});
 
 	register({

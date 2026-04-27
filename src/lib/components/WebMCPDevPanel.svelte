@@ -1,6 +1,9 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
+	import { onMount } from 'svelte';
 	import { devToolRegistry } from '$lib/webmcp/tools.js';
+
+	const MAX_AGENT_STEPS = 24;
+	const MESSAGES_ELEMENT_ID = 'webmcp-devpanel-messages';
 
 	// ── Persistence ──────────────────────────────────────────────────────────────
 	let apiUrl = $state('https://models.inference.ai.azure.com');
@@ -12,7 +15,6 @@
 	let showSettings = $state(false);
 	let inputText = $state('');
 	let loading = $state(false);
-	let messagesEl = $state<HTMLDivElement | undefined>(undefined);
 
 	// ── Chat messages (display only) ─────────────────────────────────────────────
 	type Role = 'user' | 'assistant' | 'tool_call' | 'tool_result';
@@ -44,10 +46,10 @@
 
 	// Auto-scroll to bottom when messages change
 	$effect(() => {
-		if (messages.length && messagesEl) {
-			tick().then(() => {
-				messagesEl!.scrollTop = messagesEl!.scrollHeight;
-			});
+		const messagesEl = document.getElementById(MESSAGES_ELEMENT_ID);
+
+		if (messages.length && messagesEl instanceof HTMLDivElement) {
+			messagesEl.scrollTop = messagesEl.scrollHeight;
 		}
 	});
 
@@ -79,6 +81,33 @@
 		}));
 	}
 
+	function normalizeAssistantContent(content: unknown): string {
+		if (typeof content === 'string') return content;
+
+		if (Array.isArray(content)) {
+			return content
+				.map((part) => {
+					if (typeof part === 'string') return part;
+					if (
+						part &&
+						typeof part === 'object' &&
+						'type' in part &&
+						(part as { type?: string }).type === 'text' &&
+						'text' in part &&
+						typeof (part as { text?: unknown }).text === 'string'
+					) {
+						return (part as { text: string }).text;
+					}
+
+					return '';
+				})
+				.join('\n')
+				.trim();
+		}
+
+		return '';
+	}
+
 	// ── System prompt ─────────────────────────────────────────────────────────────
 	function buildSystemPrompt(): string {
 		const toolList = [...devToolRegistry.keys()].join(', ');
@@ -89,13 +118,17 @@
 			'',
 			'Workflow:',
 			'1. You already know the full menu below — no need to call menu__get_catalog unless the user asks for details.',
-			'2. Use configurator__set_selection to configure the pizza step by step (one call per ingredient).',
-			'3. Call cart__add_current_pizza to add it to the cart.',
-			'4. Call order__place to place the order.',
+			'2. For a fresh pizza build, prefer configurator__configure_pizza to apply the full target configuration in one call.',
+			'3. Use configurator__set_selection only for small follow-up changes to the current pizza.',
+			'4. Call cart__add_current_pizza to add it to the cart.',
+			'5. Call order__place only when the user explicitly asks to order or checkout.',
 			'',
 			'Always use the tools when the user asks you to do something on the website.',
+			'Before the first tool call in a multi-step task, send one short acknowledgement to the user.',
 			'Never tell the user you cannot interact with the website — you can, via these tools.',
 			'After completing a multi-step task, give a short summary (not a step-by-step log).',
+			'Once the pizza matches the request, stop configuring immediately and move to the next step.',
+			'Do not repeat the same tool call unless the latest tool result shows the requested state is still missing.',
 			'Respond in the same language the user writes in.',
 			'IMPORTANT: Only call order__place when the user explicitly asks to order, place the order, or checkout.',
 			'If the user only says "add to cart", "in den Warenkorb" or similar — stop after cart__add_current_pizza. Do NOT place the order.',
@@ -160,7 +193,7 @@
 	}
 
 	async function agentLoop() {
-		while (true) {
+		for (let step = 0; step < MAX_AGENT_STEPS; step += 1) {
 			const res = await fetch(`${apiUrl}/chat/completions`, {
 				method: 'POST',
 				headers: {
@@ -185,8 +218,13 @@
 
 			const assistantMsg = choice.message;
 			apiConversation = [...apiConversation, assistantMsg];
+			const assistantText = normalizeAssistantContent(assistantMsg.content);
 
 			if (choice.finish_reason === 'tool_calls' && assistantMsg.tool_calls?.length) {
+				if (assistantText) {
+					addMsg('assistant', assistantText);
+				}
+
 				const toolNames: string[] = assistantMsg.tool_calls.map(
 					(tc: { function: { name: string } }) => tc.function.name
 				);
@@ -218,10 +256,15 @@
 				}
 				// Continue loop to get the model's next response
 			} else {
-				addMsg('assistant', assistantMsg.content ?? '(empty)');
+				addMsg('assistant', assistantText || '(empty)');
 				return;
 			}
 		}
+
+		addMsg(
+			'assistant',
+			'I started the task, but the model stayed in a tool loop and did not finish cleanly. Please try again or use a model with stronger tool-calling reliability.'
+		);
 	}
 
 	function clearChat() {
@@ -301,7 +344,7 @@
 		{/if}
 
 		<!-- Messages -->
-		<div class="messages" bind:this={messagesEl}>
+		<div class="messages" id={MESSAGES_ELEMENT_ID}>
 			{#if messages.length === 0}
 				<p class="empty-hint">
 					Tools registered: <strong>{devToolRegistry.size}</strong><br />Try e.g.
